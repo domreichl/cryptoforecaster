@@ -1,0 +1,27 @@
+symbol: ETH
+train_years: 4
+eval_days: 60
+buy_threshold: 1.02
+features:
+ - RawClose
+ - LogReturn
+ - Sign
+ - Volume
+ - RPR
+ - RSI
+ - StochasticOscillator
+ - MACD
+ - EMA5
+ - EMA20
+ - BollingerBandHigh
+ - BollingerBandLow
+ - RawCloseBTC
+ - LogReturnBTC
+ - SignBTC
+ - GoogleTrends
+hyperparameters:
+  window_size: 7
+  forecast_horizon: 1
+  layers: 8
+  units: 256
+  dropout_rate: 0.1
