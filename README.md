@@ -1,5 +1,5 @@
 # cryptoforecaster
-## Recurrent Neural Network for Cryptocurrency Forecasting
+## Recurrent Neural Network for Cryptocurrency Return Forecasting
 This is a minimal version of [trading-ml](https://github.com/domreichl/trading-ml), to be used for tuning and testing binary sign predictor RNNs that forecast cryptocurrency returns.
 
 ### Installation
