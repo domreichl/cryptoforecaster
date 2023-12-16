@@ -104,8 +104,8 @@ def tune_model() -> None:
                 },
             )
             y_pred = predict(model, mts.x_test)
-            print("PR", y_pred)
-            print("GT", mts.y_test)
+            print("PR:", y_pred)
+            print("GT:", mts.y_test)
             metrics = compute_metrics(mts.y_test, y_pred)
             print("Current Metrics:")
             [print(f" {k}: {v}") for k, v in metrics.items()]
