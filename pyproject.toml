@@ -21,7 +21,7 @@ dependencies = [
     "ta==0.11.0",
     "python-bitvavo-api==1.2.3",
     "pytrends==4.9.2",
-    "ipykernel==6.27.1",
+    "PyQt5==5.15.2",
 ]
 
 [project.scripts]

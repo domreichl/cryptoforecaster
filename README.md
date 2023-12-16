@@ -16,4 +16,6 @@ This is a minimal version of [trading-ml](https://github.com/domreichl/trading-m
 2. Update current data: `cf update`
 3. Tune the model: `cf tune`
 4. Test the model: `cf test`
-5. Plot test results: `cf plot test`
+5. Plot performance:
+    - `cf plot tuning`
+    - `cf plot test`

@@ -4,7 +4,7 @@ from utils.config import Config
 from utils.data_preparation import download_data, update_data
 from utils.file_handling import DataHandler
 from utils.models import tune_model, test_model
-from utils.plotting import plot_test_results
+from utils.plotting import plot_test_results, plot_tuning_results
 
 
 @click.group()
@@ -37,6 +37,8 @@ def test():
 @click.argument("plot_type")
 def plot(plot_type: str):
     match plot_type:
+        case "tuning":
+            plot_tuning_results()
         case "test":
             plot_test_results()
 
