@@ -11,8 +11,8 @@ class Config:
         self.buy_threshold = float(cfg["buy_threshold"])
         self.features = list(cfg["features"])
         self.hparams = dict(cfg["hyperparameters"])
-        self.window_size = self.hparams["window_size"]
-        self.forecast_horizon = self.hparams["forecast_horizon"]
+        self.look_back_window = self.hparams["look_back_window"]
+        self.forecast_window = self.hparams["forecast_window"]
 
 
 class TuningParameters:

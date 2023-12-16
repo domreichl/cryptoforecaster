@@ -13,20 +13,20 @@ from utils.file_handling import DataHandler
 
 
 def preprocess_data(
-    window_size: int = None,
-    forecast_horizon: int = None,
+    look_back_window: int = None,
+    forecast_window: int = None,
     split_type: str = "validation",
 ) -> MultivariateTimeSeries:
     cfg = Config()
     df = DataHandler().load_csv_data(cfg.symbol)
-    df, dates = trim_and_sort_data(df, forecast_horizon or cfg.forecast_horizon)
+    df, dates = trim_and_sort_data(df, forecast_window or cfg.forecast_window)
     df.sort_values(["Symbol", "Date"], inplace=True)
     x, y = process_features(
         df,
         cfg.symbol,
         cfg.features,
-        window_size or cfg.window_size,
-        forecast_horizon or cfg.forecast_horizon,
+        look_back_window or cfg.look_back_window,
+        forecast_window or cfg.forecast_window,
         cfg.buy_threshold,
     )
     x_train, y_train, x_test, y_test = split_sets(
@@ -39,9 +39,9 @@ def preprocess_data(
     return MultivariateTimeSeries(dates, x_train, y_train, x_test, y_test)
 
 
-def trim_and_sort_data(df: pd.DataFrame, forecast_horizon: int) -> pd.DataFrame:
+def trim_and_sort_data(df: pd.DataFrame, forecast_window: int) -> pd.DataFrame:
     df["Date"] = pd.to_datetime(df["Date"])
-    n_units = df["Date"].nunique() - df["Date"].nunique() % forecast_horizon
+    n_units = df["Date"].nunique() - df["Date"].nunique() % forecast_window
     dates = sorted(list(df["Date"].unique()))[-n_units:]
     return df[df["Date"].isin(dates)], dates
 
@@ -50,22 +50,22 @@ def process_features(
     df: pd.DataFrame,
     symbol: str,
     features: list,
-    window_size: int,
-    forecast_horizon: int,
+    look_back_window: int,
+    forecast_window: int,
     buy_threshold: float,
 ) -> tuple[np.array]:
     x = []
     sym = df[df["Symbol"] == symbol]
-    signs = compute_binary_signs(sym["Close"], buy_threshold)
-    T = len(sym) - window_size - forecast_horizon
+    returns = compute_returns(sym["Close"])
+    T = len(sym) - look_back_window - forecast_window
     for feature_name in features:
         match feature_name:
             case "RawClose":
                 feature = sym["Close"]
             case "LogReturn":
-                feature = np.log(compute_returns(sym["Close"]))
+                feature = np.log(returns)
             case "Sign":
-                feature = signs
+                feature = compute_binary_signs(sym["Close"], buy_threshold)
             case "Volume":
                 feature = sym["Volume"]
             case "RPR":  # Relative Price Range
@@ -101,13 +101,22 @@ def process_features(
                 assert len(feature) == len(sym)
             case _:
                 raise Exception(f"Feature {feature_name} is not implemented.")
-        x.append(build_lagged_feature(feature, T, window_size))
+        x.append(build_lagged_feature(feature, T, look_back_window))
     x = np.stack(x, 2)  # T x WindowSize x Features
-    y = np.stack(
-        [signs[t + window_size : t + window_size + forecast_horizon] for t in range(T)],
-        0,
-    )  # T x ForecastHorizon
-    return x, np.int32(y)
+    y = np.array(
+        [
+            np.int32(
+                np.mean(
+                    returns[
+                        t + look_back_window : t + look_back_window + forecast_window
+                    ]
+                )
+                > buy_threshold
+            )
+            for t in range(T)
+        ],
+    )
+    return x, y
 
 
 def compute_returns(prices: pd.Series) -> np.array:
@@ -118,8 +127,8 @@ def compute_binary_signs(prices: pd.Series, buy_threshold: float) -> np.array:
     return np.float32(compute_returns(prices) > buy_threshold)
 
 
-def build_lagged_feature(feature: pd.Series, T: int, window_size: int) -> np.array:
-    return np.stack([np.array(feature)[t : t + window_size] for t in range(T)], 0)
+def build_lagged_feature(feature: pd.Series, T: int, look_back_window: int) -> np.array:
+    return np.stack([np.array(feature)[t : t + look_back_window] for t in range(T)], 0)
 
 
 def split_sets(

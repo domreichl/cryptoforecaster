@@ -13,7 +13,7 @@ from utils.file_handling import get_root_dir, ResultsHandler
 
 
 class RNN(keras.models.Model):
-    def __init__(self, fh: int, n_units: int, n_layers: int, dropout_rate: float):
+    def __init__(self, n_units: int, n_layers: int, dropout_rate: float):
         super().__init__()
         self.recurrent_layers = [
             keras.layers.GRU(n_units // 2**i, return_sequences=True)
@@ -21,7 +21,7 @@ class RNN(keras.models.Model):
         ]
         self.recurrent_layers.append(keras.layers.GRU(n_units // 2 ** len(self.layers)))
         self.dropout = keras.layers.Dropout(dropout_rate)
-        self.out = keras.layers.Dense(fh, activation="sigmoid")
+        self.out = keras.layers.Dense(1, activation="sigmoid")
 
     def call(self, x):
         for layer in self.recurrent_layers:
@@ -31,7 +31,6 @@ class RNN(keras.models.Model):
 
 def train_model(x: np.array, y: np.array, cfg: dict) -> RNN:
     model = RNN(
-        cfg["forecast_horizon"],
         cfg["units"],
         cfg["layers"],
         cfg["dropout_rate"],
@@ -46,7 +45,7 @@ def train_model(x: np.array, y: np.array, cfg: dict) -> RNN:
         validation_split=0.1,
         epochs=100,
         batch_size=32,
-        class_weight=compute_class_weights(y),  # TODO: fix error if FH>2
+        class_weight=compute_class_weights(y),
         callbacks=[
             keras.callbacks.EarlyStopping(
                 "val_loss", patience=5, restore_best_weights=True
@@ -88,33 +87,26 @@ def tune_model() -> None:
     tp = TuningParameters()
 
     def objective(trial) -> tuple:
-        fh = trial.suggest_int("forecast_horizon", 1, 10)
         mts = preprocess_data(
-            window_size=trial.suggest_int("window_size", 2, 365 * 5),
-            forecast_horizon=fh,
+            look_back_window=trial.suggest_int("look_back_window", 2, 365 * 4),
+            forecast_window=trial.suggest_int("forecast_window", 1, 14),
             split_type="validation",
         )
         ppv_lst, acc_lst, f1_lst, ps_lst = [], [], [], []
         for _ in range(tp.replications):
-            y_true_lst, y_pred_lst = [], []
-            for origin in range(0, mts.y_test.shape[0], mts.y_test.shape[1]):
-                if origin == 0:
-                    model = train_model(
-                        mts.x_train,
-                        mts.y_train,
-                        cfg={
-                            "forecast_horizon": fh,
-                            "units": trial.suggest_int("units", 2, 512),
-                            "layers": trial.suggest_int("layers", 1, 10),
-                            "dropout_rate": trial.suggest_float(
-                                "dropout_rate", 0.0, 0.5
-                            ),
-                        },
-                    )
-                _, _, x_test, _ = mts.get_slided_windows(origin)
-                y_pred_lst.append(predict(model, np.expand_dims(x_test[0], 0)))
-                y_true_lst.append(np.squeeze(mts.y_test[origin]))
-            metrics = compute_metrics(np.array(y_true_lst), np.array(y_pred_lst))
+            model = train_model(
+                mts.x_train,
+                mts.y_train,
+                cfg={
+                    "units": trial.suggest_int("units", 2, 512),
+                    "layers": trial.suggest_int("layers", 1, 10),
+                    "dropout_rate": trial.suggest_float("dropout_rate", 0.0, 0.5),
+                },
+            )
+            y_pred = predict(model, mts.x_test)
+            print("PR", y_pred)
+            print("GT", mts.y_test)
+            metrics = compute_metrics(mts.y_test, y_pred)
             print("Current Metrics:")
             [print(f" {k}: {v}") for k, v in metrics.items()]
             ppv_lst.append(metrics["Precision"])
@@ -145,6 +137,7 @@ def tune_model() -> None:
         "PredictiveScore",
     ]
     df["Replications"] = tp.replications
+    df["BuyThreshold"] = Config().buy_threshold
     df.sort_values("Precision", ascending=False, inplace=True)
     ResultsHandler().write_csv_results(df, "tuning", append=True)
 
@@ -153,7 +146,7 @@ def test_model() -> None:
     mts = preprocess_data(split_type="test")
     model = train_model(mts.x_train, mts.y_train, Config().hparams)
     y_pred = predict(model, mts.x_test)
-    metrics = compute_metrics(np.squeeze(mts.y_test), y_pred)
+    metrics = compute_metrics(mts.y_test, y_pred)
     print(metrics)
     ResultsHandler().write_csv_results(
         pd.DataFrame(metrics, index=[0]), "test", append=True
