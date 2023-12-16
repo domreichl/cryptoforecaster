@@ -2,6 +2,8 @@ import numpy as np
 
 
 def compute_metrics(y_true: np.array, y_pred: np.array) -> dict:
+    y_true = np.squeeze(y_true)
+    y_pred = np.squeeze(y_pred)
     assert y_true.shape == y_pred.shape
     P = np.count_nonzero(y_true)
     N = np.count_nonzero(y_true == 0)
