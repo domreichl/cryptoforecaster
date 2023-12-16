@@ -23,7 +23,7 @@ def plot_tuning_results():
             x="layers", y=metric, hue="units", data=df, ax=axs[1, i]
         ).set_ylabel(None)
         axs[2, i].axhline(y=0.5, color="black", linestyle="-", linewidth=3)
-        sns.barplot(x="dropout_rate", y=metric, data=df, ax=axs[2, i]).set_ylabel(None)
+        sns.boxplot(x="dropout_rate", y=metric, data=df, ax=axs[2, i]).set_ylabel(None)
 
     plt.tight_layout()
     plt.show()
